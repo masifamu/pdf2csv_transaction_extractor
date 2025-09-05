@@ -3,6 +3,8 @@
 A simple Python script to **extract transactions from PDF files** using [pdfplumber](https://github.com/jsvine/pdfplumber) and save them into **CSV** and **Excel** formats.  
 Supports password-protected PDFs and works page by page with a progress bar.  
 
+If you see any error, while processing your bank PDF, I would suggest creating an issue and paste the error, before pasting always double check you are not revealing your personal data.
+
 ---
 
 ## Features
