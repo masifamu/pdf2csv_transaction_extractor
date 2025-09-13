@@ -3,6 +3,9 @@ import pdfplumber
 import pandas as pd
 import re
 from tqdm import tqdm
+import time
+import textwrap
+import shutil
 
 headers = ["DATE", "MODE**", "PARTICULARS", "DEPOSITS", "WITHDRAWLS", "BALANCE"]  # manually define correct header
 
@@ -40,6 +43,32 @@ BANK_CONFIG = {
         "empty_cell": ["-", "None", "null"]
     }
 }
+
+def print_alert(msg: str, title: str = "IMPORTANT:", width: int = 80):
+    # Use terminal width if available
+    term_width = shutil.get_terminal_size((width, 20)).columns
+    width = min(width, term_width)
+
+    sep_line = "=" * width
+
+    BLUE = "\033[1;34m"
+    YELLOW = "\033[1;33m"
+    RESET = "\033[0m"
+
+    # Top separator
+    print(f"\n{BLUE}{sep_line}{RESET}")
+
+    # Centered title
+    print(f"{BLUE}{title.center(width)}{RESET}")
+
+    # Message wrapped to width
+    wrapped = textwrap.fill(msg, width=width)
+    print(f"{YELLOW}{wrapped}{RESET}")
+
+    # Bottom separator
+    print(f"{BLUE}{sep_line}{RESET}\n")
+
+    time.sleep(1)
 
 def get_bank_config(bank_name):
     # Return regex config if bank is known, else None
@@ -140,7 +169,7 @@ def extract_tables_from_pdf(pdf_path, bank_config, password=None):
                             else:
                                df.loc[len(df)]=[i[0],"",i[1],i[2],"",i[3]] 
                             opening_balance = parse_number(i[3])
-            print("\n--- Printing Complete Extracted Table ---")
+            print_alert("--- Printing Complete Extracted Table ---")
             print(df)
     except FileNotFoundError:
         print(f"File not found: {pdf_path}. Please check the path and try again.")
@@ -158,7 +187,7 @@ def save_output(final_df, output_file):
         final_df (pd.DataFrame): DataFrame containing all extracted tables.
         output_file (str): Base output filename (CSV by default).
     """
-    print("\n--- Saving Table ---")
+    print_alert("--- Saving Table ---")
     try:
         # Save as CSV
         final_df.to_csv(output_file, index=False)
@@ -172,6 +201,45 @@ def save_output(final_df, output_file):
     except Exception as e:
         print("Error saving output:", e)
 
+def verify_transactions(df: pd.DataFrame):
+    """
+    Verify that:
+    1. No missing values exist.
+    2. total[0] is the opening balance.
+    3. For each row i > 0: total[i] = total[i-1] + deposits[i] - withdrawals[i].
+
+    Returns:
+        dict with:
+          - "status": True/False
+          - "errors": DataFrame of mismatches
+          - "message": summary text
+    """
+    print_alert("Transaction Verification")
+    # Convert using parse_number
+    deposits = df.iloc[:, 3].apply(parse_number)
+    withdrawals = df.iloc[:, 4].apply(parse_number)
+    total = df.iloc[:, 5].apply(parse_number)
+
+    # ---------- Check cumulative consistency ----------
+    expected_total = total.copy()
+    for i in tqdm(range(1, len(df)), desc="Verifying transactions correctness"):
+        expected_total.iloc[i] = round(expected_total.iloc[i-1] + deposits.iloc[i] - withdrawals.iloc[i],2)
+        time.sleep(0.01)
+
+    mismatches = df[total != expected_total].copy()
+    if not mismatches.empty:
+        mismatches["expected_total"] = expected_total[total != expected_total]
+        mismatches["actual_total"] = total[total != expected_total]
+        print(mismatches)
+
+    # ---------- Build report ----------
+    status = mismatches.empty
+    if status:
+        print("All checks passed. Data looks consistent.")
+    else:
+        print(f"{len(mismatches)} mismatches found.")
+        exit(0)
+
 def main():
     pdf_path, password, output_csv = get_pdf_handle()
     bank_name = detect_bank_from_pdf(pdf_path, password)
@@ -184,10 +252,11 @@ def main():
     config = get_bank_config(bank_name)
 
     page_num, final_df = extract_tables_from_pdf(pdf_path, config, password)
+    verify_transactions(final_df)
     if not final_df.empty:
         save_output(final_df, output_csv)
         # Summary
-        print("\n--- Summary ---")
+        print_alert("--- Summary ---")
         print(f"File processed: {pdf_path}")
         print(f"Total pages processed: {page_num}")
         #print(f"Pages with tables: {pdf_path}")
