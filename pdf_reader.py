@@ -6,7 +6,7 @@ from tqdm import tqdm
 import time
 import textwrap
 import shutil
-
+import math
 headers = ["DATE", "MODE**", "PARTICULARS", "DEPOSITS", "WITHDRAWLS", "BALANCE"]  # manually define correct header
 
 
@@ -240,6 +240,97 @@ def verify_transactions(df: pd.DataFrame):
         print(f"{len(mismatches)} mismatches found.")
         exit(0)
 
+def edit1_descriptions_paginated(df: pd.DataFrame, page_size: int = 10) -> pd.DataFrame:
+    """
+    Paginated editor for the 2nd column (description) of a DataFrame.
+    User can navigate pages and edit descriptions interactively.
+    """
+    col_name = df.columns[1]  # 2nd column
+    n_rows = len(df)
+    total_pages = math.ceil(n_rows / page_size)
+    page = 0
+
+    while True:
+        start = page * page_size
+        end = min(start + page_size, n_rows)
+        print(f"\nShowing rows {start} to {end-1} (Page {page+1}/{total_pages}):\n")
+        print(df.iloc[start:end])  # show ID and description
+
+        # Edit rows in this page
+        for idx in range(start, end):
+            current_desc = df.at[idx, col_name]
+            new_desc = input(f"Row {idx} - Current description: {current_desc}\nNew description (Enter to keep): ")
+            if new_desc.strip():
+                df.at[idx, col_name] = new_desc.strip()
+
+        # Navigation options
+        nav = input("\nOptions: [N]ext page, [P]revious page, [Q]uit editing: ").strip().lower()
+        if nav == 'n':
+            if page < total_pages - 1:
+                page += 1
+            else:
+                print("Already at last page.")
+        elif nav == 'p':
+            if page > 0:
+                page -= 1
+            else:
+                print("Already at first page.")
+        elif nav == 'q':
+            print("\nFinished editing.")
+            break
+        else:
+            print("Invalid option. Please type N, P, or Q.")
+
+    return df
+
+def edit_descriptions_paginated(df: pd.DataFrame, page_size: int = 10) -> pd.DataFrame:
+    """
+    Paginated editor for the 2nd column (description) of a DataFrame.
+    Shows all columns and lets the user edit the description column.
+    Updates are immediately reflected, and the updated page is displayed after edits.
+    """
+    col_name = df.columns[2]  # 2nd column
+    n_rows = len(df)
+    total_pages = math.ceil(n_rows / page_size)
+    page = 0
+
+    while True:
+        start = page * page_size
+        end = min(start + page_size, n_rows)
+        print(f"\nShowing rows {start} to {end-1} (Page {page+1}/{total_pages}):\n")
+        print(df.iloc[start:end])  # show all columns
+
+        # Edit rows in this page
+        for idx in range(start, end):
+            current_desc = df.at[idx, col_name]
+            new_desc = input(f"\nRow {idx} - Current description: {current_desc}\nNew description (Enter to keep): ")
+            if new_desc.strip():
+                df.at[idx, col_name] = new_desc.strip()
+
+        # Show updated page
+        print("\nUpdated page:")
+        print(df.iloc[start:end])
+
+        # Navigation options
+        nav = input("\nOptions: [N]ext page, [P]revious page, [Q]uit editing: ").strip().lower()
+        if nav == 'n':
+            if page < total_pages - 1:
+                page += 1
+            else:
+                print("Already at last page.")
+        elif nav == 'p':
+            if page > 0:
+                page -= 1
+            else:
+                print("Already at first page.")
+        elif nav == 'q':
+            print("\nFinished editing.")
+            break
+        else:
+            print("Invalid option. Please type N, P, or Q.")
+
+    return df
+
 def main():
     pdf_path, password, output_csv = get_pdf_handle()
     bank_name = detect_bank_from_pdf(pdf_path, password)
@@ -253,6 +344,16 @@ def main():
 
     page_num, final_df = extract_tables_from_pdf(pdf_path, config, password)
     verify_transactions(final_df)
+
+    print_alert("Editing description for the transactions")
+     # Ask user if they want to edit the description
+    choice = input("Do you want to edit the descriptions? (Y/N): ").strip().lower()
+    if choice == 'y':
+        final_df = edit_descriptions_paginated(final_df, page_size=5)
+    else:
+        print("Skipping description editing.")
+    print_alert("Final Transaction Table")
+    print(final_df)
     if not final_df.empty:
         save_output(final_df, output_csv)
         # Summary

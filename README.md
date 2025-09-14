@@ -82,6 +82,20 @@ Examples:
 ```
 ---
 
+## How to import this table.csv into the GNUCash
+- File=>Import=>Import transactions from CSV
+- Read the instructions and click Next (top right corner)
+- Now browser and select your table.csv file and click next
+- File Format-Separators: select comma(,)
+- Miscellaneous=> Leading line to skip: 1, Data-format: d-m-y
+- From the dropdown select the proper column name as per the GNUCash
+- In the account tab at the top, select a base account
+- Keep rest as it is, now press next
+- Click on show account column, show memo bolumn, and show matched information
+- Now it's time to assign accounts where you have sent your money while expending, In the very right column, you will be seeing New Unbalanced ....That's where you have to double click and select proper account or you can do the same by clicking apply and close. Open your account, under the transfer, you will see imbalance-INR, correct them by choosing the right account from GNUCash.
+- Finished
+---
+
 ## Notes
 
 Extraction accuracy depends on how the PDF is formatted.
